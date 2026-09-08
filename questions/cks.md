@@ -314,7 +314,7 @@ kubectl get pod frontend -n qa -o jsonpath='{.spec.serviceAccountName}{"\n"}'
 
 ## 6. Expose a Pod via an Ingress With TLS
 
-**Task:** `task setup S=06 C=cks`. In namespace `testing`, create a Pod named `nginx-pod` (image `nginx`), a Service named `nginx-svc` targeting it, and an Ingress that serves the Service over **TLS** on the secure port (443).
+**Task:** `task setup S=06 C=cks`. In namespace `testing`, create a Pod named `nginx-pod` (image `nginx`), a Service named `nginx-svc` targeting it on port `80`, and a TLS Secret named `nginx-tls`. Create an Ingress named `nginx-ingress` for host `nginx.example.com` that routes `/` to `nginx-svc:80` and serves the host over **TLS** on the secure port (443).
 
 <details>
 <summary>Hint</summary>
@@ -335,10 +335,18 @@ kubectl expose pod nginx-pod --name=nginx-svc --port=80 --target-port=80 -n test
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -keyout tls.key -out tls.crt -subj "/CN=nginx.example.com/O=cks"
 kubectl create secret tls nginx-tls -n testing --cert=tls.crt --key=tls.key
+
+# 3. Create the Ingress with nginx-tls for HTTPS and nginx-svc:80 as the backend
+kubectl create ingress nginx-ingress -n testing \
+  --rule=nginx.example.com/=nginx-svc:80,tls=nginx-tls
 ```
 
+> The `:80` in the rule is the Service backend port. The `tls` setting makes
+> the Ingress accept HTTPS on port `443` and terminate TLS with `nginx-tls`;
+> `443` is not the Service port in this setup.
+
 ```yaml
-# 3. ingress.yaml — reference the TLS secret
+# 4. ingress.yaml — equivalent declarative form
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
