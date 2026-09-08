@@ -482,8 +482,7 @@ kubectl exec client -n ecom -- curl -s --max-time 3 https://example.com   # time
 
 ```yaml
 # metadata-netpol.yaml
-# Deny egress to the metadata IP for pods WITHOUT the role=metadata-client label,
-# while still allowing all other egress + DNS.
+# Allow all egress except the metadata IP for pods without the exception label.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -497,23 +496,17 @@ spec:
         values: ["metadata-client"]
   policyTypes: ["Egress"]
   egress:
-    # allow everything EXCEPT the metadata address
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
             except:
               - 169.254.169.254/32
-    # keep DNS working
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
 ```
+
+> [!NOTE]
+> `0.0.0.0/0` matches every IPv4 destination. Because no ports are specified,
+> it allows all ports and protocols to those destinations; `except` removes only
+> `169.254.169.254/32`, so that address remains blocked for the selected pods.
 
 ```bash
 kubectl apply -f metadata-netpol.yaml
@@ -526,7 +519,7 @@ kubectl exec metadata-client -n metadata-lab -- curl -s --max-time 3 http://169.
 > [!NOTE]
 > The policy selects every pod whose `role` is **not** `metadata-client` and
 > allows egress to `0.0.0.0/0` **except** the metadata `/32`. `metadata-client`
-> is not selected by any deny policy, so it keeps full access.
+> is not selected by this policy, so it keeps full access.
 
 </details>
 
