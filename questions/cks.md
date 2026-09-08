@@ -512,14 +512,20 @@ spec:
 kubectl apply -f metadata-netpol.yaml
 
 # app (no role label) is blocked; metadata-client is allowed.
-kubectl exec app -n metadata-lab -- curl -s --max-time 3 http://169.254.169.254   # times out
-kubectl exec metadata-client -n metadata-lab -- curl -s --max-time 3 http://169.254.169.254  # allowed
+kubectl exec app -n metadata-lab -- curl -s --max-time 3 http://169.254.169.254   # blocked; curl usually exits 28
+kubectl exec metadata-client -n metadata-lab -- curl -s --max-time 3 http://169.254.169.254  # not blocked by this policy
 ```
 
 > [!NOTE]
 > The policy selects every pod whose `role` is **not** `metadata-client` and
 > allows egress to `0.0.0.0/0` **except** the metadata `/32`. `metadata-client`
 > is not selected by this policy, so it keeps full access.
+>
+> kind does not provide a cloud metadata service at `169.254.169.254`. Therefore,
+> in this local lab, `app` should time out (curl exit `28`) while
+> `metadata-client` may fail immediately with curl exit `7` because no service
+> is listening. On a cloud node with a metadata service, the latter command
+> would be able to connect.
 
 </details>
 
