@@ -386,7 +386,7 @@ kubectl describe ingress nginx-ingress -n testing   # TLS terminates nginx.examp
 
 ## 7. Default-Deny NetworkPolicy Baseline
 
-**Task:** `task setup S=07 C=cks`. Namespace `ecom` has `app` (with Service `app`) and `client` pods and no NetworkPolicies. Create a **default-deny** baseline for both ingress and egress in the namespace, then re-allow only (a) DNS to kube-dns and (b) same-namespace traffic, so `client` can still reach `app` but nothing can leave the namespace.
+**Task:** `task setup S=07 C=cks`. Namespace `ecom` has `app` (with Service `app`) and `client` pods and no NetworkPolicies. Create a **default-deny** baseline for both ingress and egress in the namespace, then re-allow only (a) DNS queries to kube-dns in `kube-system` over UDP and TCP port `53` and (b) same-namespace traffic, so `client` can still reach `app` but nothing else can leave the namespace.
 
 <details>
 <summary>Hint</summary>
