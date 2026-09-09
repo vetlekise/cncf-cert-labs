@@ -553,7 +553,7 @@ kubectl label namespace pss \
 ```
 
 ```bash
-# 2. Fix the deployment to comply with restricted (drop privileged, add the
+# 2. Fix the deployment to comply with restricted (drop privileged and add the
 #    required securityContext fields).
 kubectl edit deployment web -n pss
 ```
@@ -567,7 +567,9 @@ spec:
       type: RuntimeDefault
   containers:
     - name: web
-      image: nginx:1.25
+      image: nginxinc/nginx-unprivileged:1.25
+      ports:
+        - containerPort: 8080
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -586,6 +588,9 @@ kubectl get pods -n pss
 > `capabilities.drop: [ALL]`, and a `RuntimeDefault`/`Localhost` seccomp profile,
 > and forbids `privileged`. Labelling the namespace only blocks **new** pods; you
 > must roll the Deployment for the change to take effect.
+>
+> The scenario image already supports non-root execution, so the intended fix is
+> the Pod Security configuration rather than changing the application image.
 
 </details>
 
