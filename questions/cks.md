@@ -840,7 +840,13 @@ kubectl get deploy payment -n runtime \
 
 ## 14. Enable Kubernetes Audit Logging
 
-**Task:** *(control-plane node exercise — no `task setup`.)* Configure the kube-apiserver to write audit logs using the policy at `scenarios/cks/14-audit-logging/audit-policy.yaml`. Logs must go to `/var/log/kubernetes/audit/audit.log`, keep at most 5 days of history and 10 rotated files.
+**Task:** *(control-plane node exercise — no `task setup`.)* On the Kubernetes control-plane node, configure the **kube-apiserver static pod** to write audit logs using the policy at `scenarios/cks/14-audit-logging/audit-policy.yaml`. The static pod manifest is located at `/etc/kubernetes/manifests/kube-apiserver.yaml`. Logs must go to `/var/log/kubernetes/audit/audit.log`, keep at most 5 days of history and 10 rotated files.
+
+> [!NOTE]
+> This task configures the kube-apiserver pod itself, not application pods. The
+> policy file and log directory exist on the control-plane node and must be
+> mounted into the kube-apiserver container so the API server can read the
+> policy and write the audit log.
 
 <details>
 <summary>Hint</summary>
@@ -855,9 +861,11 @@ kubectl get deploy payment -n runtime \
 ```bash
 # 1. Place the audit policy on the control-plane node
 sudo mkdir -p /etc/kubernetes/audit /var/log/kubernetes/audit
-sudo cp audit-policy.yaml /etc/kubernetes/audit/audit-policy.yaml
+sudo cp scenarios/cks/14-audit-logging/audit-policy.yaml \
+  /etc/kubernetes/audit/audit-policy.yaml
 
-# 2. Edit the static pod manifest
+# 2. Edit the kube-apiserver static pod manifest on the control-plane node.
+#    The kubelet watches this directory and manages the static pod automatically.
 sudo vi /etc/kubernetes/manifests/kube-apiserver.yaml
 ```
 
@@ -871,7 +879,8 @@ Add these flags to the `kube-apiserver` command:
     - --audit-log-maxsize=100
 ```
 
-Mount the policy and log directories into the static pod:
+Mount the policy and log directory into the **kube-apiserver container**. These
+are not mounts for ordinary workload pods:
 
 ```yaml
     volumeMounts:
@@ -883,10 +892,12 @@ Mount the policy and log directories into the static pod:
   volumes:
     - name: audit-policy
       hostPath:
+        # Path on the control-plane node
         path: /etc/kubernetes/audit/audit-policy.yaml
         type: File
     - name: audit-log
       hostPath:
+        # Path on the control-plane node; the API server writes here
         path: /var/log/kubernetes/audit
         type: DirectoryOrCreate
 ```
