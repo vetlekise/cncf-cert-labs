@@ -937,12 +937,52 @@ sudo tail -f /var/log/kubernetes/audit/audit.log
 <details>
 <summary>Answer</summary>
 
+Run kube-bench **on the control-plane node** so it can read the node's real
+`/etc/kubernetes` and `/var/lib/kubelet` files. The most portable way is an
+in-cluster Job pinned to the control-plane node (works even where the host
+`kube-bench` binary or its `cfg/` benchmark definitions aren't installed):
+
 ```bash
-# 1. Run kube-bench (as a job or the binary) and read the FAIL/WARN items
-kube-bench run --targets master | less
-# or in-cluster:
-kubectl run kube-bench --image=aquasec/kube-bench:latest --restart=Never \
-  --overrides='{"spec":{"hostPID":true}}' -- run --targets master
+# 1. Run kube-bench as a Job on the control-plane node and read the FAIL/WARN items.
+kubectl apply -f - <<'EOF'
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kube-bench
+spec:
+  template:
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      hostPID: true
+      hostNetwork: true       # run even if the CNI is unavailable
+      restartPolicy: Never
+      containers:
+        - name: kube-bench
+          image: aquasec/kube-bench:latest
+          args: ["run", "--targets", "master,node"]
+          volumeMounts:
+            - { name: etc-kubernetes, mountPath: /etc/kubernetes, readOnly: true }
+            - { name: var-lib-kubelet, mountPath: /var/lib/kubelet, readOnly: true }
+            - { name: var-lib-etcd, mountPath: /var/lib/etcd, readOnly: true }
+            - { name: etc-systemd, mountPath: /etc/systemd, readOnly: true }
+            - { name: usr-bin, mountPath: /usr/local/mount-from-host/bin, readOnly: true }
+      volumes:
+        - { name: etc-kubernetes, hostPath: { path: /etc/kubernetes } }
+        - { name: var-lib-kubelet, hostPath: { path: /var/lib/kubelet } }
+        - { name: var-lib-etcd, hostPath: { path: /var/lib/etcd } }
+        - { name: etc-systemd, hostPath: { path: /etc/systemd } }
+        - { name: usr-bin, hostPath: { path: /usr/bin } }
+EOF
+kubectl wait --for=condition=complete job/kube-bench --timeout=120s
+kubectl logs job/kube-bench | grep '\[FAIL\]'
+
+# On a real kubeadm exam node you can instead run the binary directly:
+#   kube-bench run --targets master,node | less
 ```
 
 ```bash
@@ -968,8 +1008,10 @@ authorization:
 
 ```bash
 sudo systemctl restart kubelet
-# Re-run kube-bench and confirm the two items now PASS.
-kube-bench run --targets master,node | grep -E '1.2.1|4.2.1'
+# Re-run kube-bench (delete + re-apply the Job above) and confirm the two items PASS.
+kubectl delete job kube-bench --ignore-not-found
+# ...re-apply the Job manifest from step 1...
+kubectl logs job/kube-bench | grep -E '1.2.1|4.2.1'
 ```
 
 > [!NOTE]
@@ -977,6 +1019,16 @@ kube-bench run --targets master,node | grep -E '1.2.1|4.2.1'
 > remediation. On the exam, fix the specific control the task names, edit the
 > apiserver **static pod manifest** or the **kubelet config**, then restart the
 > relevant component (kubelet restart / apiserver auto-restart).
+
+> [!IMPORTANT]
+> **On this kind cluster** the two named controls (`1.2.1` apiserver
+> `--anonymous-auth` and `4.2.1` kubelet anonymous auth) already **PASS** — kind
+> configures them securely out of the box, so they won't appear in the `[FAIL]`
+> list. Practise the remediation workflow against a control the Job actually flags
+> (e.g. the audit-log or file-permission items), or use a real kubeadm node where
+> these two commonly fail. Editing `/var/lib/kubelet/config.yaml` and restarting
+> the kubelet is a node-level action; on kind, `exec` into the node
+> (`podman exec -it labs-control-plane bash`) — there is no host `systemctl`.
 
 </details>
 
@@ -1170,7 +1222,16 @@ jq '.name, (.packages | length)' /tmp/nginx-sbom.spdx.json
 # 1. Falco must run on the node. On the exam it's already installed; otherwise:
 helm repo add falcosecurity https://falcosecurity.github.io/charts && helm repo update
 helm install falco falcosecurity/falco -n falco --create-namespace \
-  --set driver.kind=ebpf
+  --set driver.kind=modern_ebpf      # modern eBPF needs no kernel module/headers
+```
+
+> [!IMPORTANT]
+> **On this kind cluster** the *workload* and *rule-authoring* parts are fully
+> doable: `task setup S=19 C=cks` creates the `suspicious` pod, and you can write
+> the custom rule below. The **driver install is best-effort** — Falco reads
+> syscalls via an eBPF/kernel driver on the node, so it depends on the host kernel
+> (the Podman VM kernel). `modern_ebpf` (CO-RE, needs BTF) is the most likely to
+> load; if it doesn't, this step can only be completed on a real exam node.
 
 # 2. Trigger the built-in "Terminal shell in container" rule
 kubectl exec -it suspicious -n falco-demo -- sh
@@ -1198,11 +1259,10 @@ kubectl exec suspicious -n falco-demo -- cat /etc/shadow
 kubectl logs -n falco -l app.kubernetes.io/name=falco | grep -i "/etc/shadow"
 ```
 
-> [!IMPORTANT]
-> Falco reads syscalls via an eBPF/kernel driver on the **node**, so it can't run
-> in a plain kind cluster without a compatible host kernel. On the exam, identify
-> which default rule fired for a given activity, or add/modify a rule and confirm
-> the alert. Note the `priority` (WARNING) and `output` fields the task asks for.
+> [!NOTE]
+> On the exam, identify which default rule fired for a given activity, or
+> add/modify a rule and confirm the alert. Note the `priority` (WARNING) and
+> `output` fields the task asks for.
 
 </details>
 
@@ -1212,7 +1272,15 @@ kubectl logs -n falco -l app.kubernetes.io/name=falco | grep -i "/etc/shadow"
 
 **Task:** *(node exercise — no `task setup`.)* Upgrade the control-plane node from the current version to the next patch/minor release using `kubeadm`, draining and uncordoning the node around the upgrade.
 
-> **Node access:** Connect to the control-plane node with `podman exec -it labs-control-plane bash` (on the exam, use the provided SSH command).
+> [!WARNING]
+> **Not reproducible on this kind cluster.** kind bakes `kubeadm`/`kubelet`/`kubectl`
+> into the node image under `/usr/bin` and ships **no Kubernetes apt repo**, so the
+> `apt-get install kubeadm=<ver>` steps below cannot work, and the node is already
+> at the latest baked-in version. To change a kind cluster's version you recreate it
+> with a pinned node image (`kind create cluster --image kindest/node:v1.XX.Y`), not
+> `kubeadm upgrade`. Practise the real `kubeadm upgrade` flow on a kubeadm VM
+> (e.g. killercoda / killer.sh / a kubeadm-provisioned host); the commands below are
+> written for such a node.
 
 <details>
 <summary>Hint</summary>
