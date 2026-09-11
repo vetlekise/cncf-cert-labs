@@ -600,6 +600,8 @@ kubectl get pods -n pss
 
 **Task:** `task setup S=10 C=cks`. Confine the container in Pod `hello-apparmor` (namespace `apparmor`) with the AppArmor profile `k8s-apparmor-example-deny-write`, which is loaded on the node.
 
+> **Node access:** Connect to the node with `podman exec -it labs-worker bash` (on the exam, use the provided SSH command).
+
 <details>
 <summary>Hint</summary>
 
@@ -842,6 +844,8 @@ kubectl get deploy payment -n runtime \
 
 **Task:** *(control-plane node exercise — no `task setup`.)* On the Kubernetes control-plane node, configure the **kube-apiserver static pod** to write audit logs using the policy at `scenarios/cks/14-audit-logging/audit-policy.yaml`. The static pod manifest is located at `/etc/kubernetes/manifests/kube-apiserver.yaml`. Logs must go to `/var/log/kubernetes/audit/audit.log`, keep at most 5 days of history and 10 rotated files.
 
+> **Node access:** Connect to the control-plane node with `podman exec -it labs-control-plane bash` (on the exam, use the provided SSH command).
+
 > [!NOTE]
 > This task configures the kube-apiserver pod itself, not application pods. The
 > policy file and log directory exist on the control-plane node and must be
@@ -920,6 +924,8 @@ sudo tail -f /var/log/kubernetes/audit/audit.log
 ## 15. Review the Cluster With the CIS Benchmark
 
 **Task:** *(node exercise — no `task setup`.)* Run `kube-bench` against the control-plane node, then remediate two common failures: disable anonymous auth on the kube-apiserver and ensure the kubelet does not allow anonymous access.
+
+> **Node access:** Connect to the control-plane node with `podman exec -it labs-control-plane bash` (on the exam, use the provided SSH command).
 
 <details>
 <summary>Hint</summary>
@@ -1148,6 +1154,8 @@ jq '.name, (.packages | length)' /tmp/nginx-sbom.spdx.json
 
 **Task:** `task setup S=19 C=cks`. Using Falco, detect when a shell is opened inside a running container. Trigger the rule by exec'ing a shell into the `suspicious` pod (namespace `falco-demo`) and find the corresponding Falco alert. Then write a **custom** Falco rule that logs at `WARNING` when a process reads `/etc/shadow` in any container.
 
+> **Node access:** Connect to the node with `podman exec -it labs-control-plane bash` (on the exam, use the provided SSH command).
+
 <details>
 <summary>Hint</summary>
 
@@ -1203,6 +1211,8 @@ kubectl logs -n falco -l app.kubernetes.io/name=falco | grep -i "/etc/shadow"
 ## 20. Upgrade Kubernetes With kubeadm
 
 **Task:** *(node exercise — no `task setup`.)* Upgrade the control-plane node from the current version to the next patch/minor release using `kubeadm`, draining and uncordoning the node around the upgrade.
+
+> **Node access:** Connect to the control-plane node with `podman exec -it labs-control-plane bash` (on the exam, use the provided SSH command).
 
 <details>
 <summary>Hint</summary>
