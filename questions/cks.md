@@ -938,12 +938,24 @@ sudo tail -f /var/log/kubernetes/audit/audit.log
 <summary>Answer</summary>
 
 Run kube-bench **on the control-plane node** so it can read the node's real
-`/etc/kubernetes` and `/var/lib/kubelet` files. The most portable way is an
-in-cluster Job pinned to the control-plane node (works even where the host
-`kube-bench` binary or its `cfg/` benchmark definitions aren't installed):
+`/etc/kubernetes` and `/var/lib/kubelet` files.
+
+> [!IMPORTANT]
+> **On the real exam**, `kube-bench` is pre-installed on the node — SSH in and
+> run it directly, no Job needed:
+> ```bash
+> ssh node01           # or the exam's provided SSH command
+> kube-bench run --targets master,node | less
+> # or, narrower:
+> kube-bench run --targets master,node | grep -E '\[FAIL\]|1.2.1|4.2.1'
+> ```
+> This kind/podman lab node has no `kube-bench` binary or `cfg/` definitions
+> installed, so step 1 below runs it as an in-cluster Job instead purely to
+> make the exercise reproducible here — **practise the direct CLI form above**,
+> since that's what you'll actually type on exam day.
 
 ```bash
-# 1. Run kube-bench as a Job on the control-plane node and read the FAIL/WARN items.
+# 1. Lab-only substitute: run kube-bench as a Job on the control-plane node and read the FAIL/WARN items.
 kubectl apply -f - <<'EOF'
 apiVersion: batch/v1
 kind: Job
@@ -980,9 +992,6 @@ spec:
 EOF
 kubectl wait --for=condition=complete job/kube-bench --timeout=120s
 kubectl logs job/kube-bench | grep '\[FAIL\]'
-
-# On a real kubeadm exam node you can instead run the binary directly:
-#   kube-bench run --targets master,node | less
 ```
 
 ```bash
