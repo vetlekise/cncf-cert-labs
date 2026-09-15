@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kube-bench
+spec:
+  template:
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      hostPID: true
+      hostNetwork: true       # run even if the CNI is unavailable
+      restartPolicy: Never
+      containers:
+        - name: kube-bench
+          image: aquasec/kube-bench:latest
+          args: ["run", "--targets", "master,node"]
+          volumeMounts:
+            - { name: etc-kubernetes, mountPath: /etc/kubernetes, readOnly: true }
+            - { name: var-lib-kubelet, mountPath: /var/lib/kubelet, readOnly: true }
+            - { name: var-lib-etcd, mountPath: /var/lib/etcd, readOnly: true }
+            - { name: etc-systemd, mountPath: /etc/systemd, readOnly: true }
+            - { name: usr-bin, mountPath: /usr/local/mount-from-host/bin, readOnly: true }
+      volumes:
+        - { name: etc-kubernetes, hostPath: { path: /etc/kubernetes } }
+        - { name: var-lib-kubelet, hostPath: { path: /var/lib/kubelet } }
+        - { name: var-lib-etcd, hostPath: { path: /var/lib/etcd } }
+        - { name: etc-systemd, hostPath: { path: /etc/systemd } }
+        - { name: usr-bin, hostPath: { path: /usr/bin } }
