@@ -1272,7 +1272,10 @@ Add a custom rule in `/etc/falco/falco_rules.local.yaml` (or a mounted rules fil
 ```
 
 ```bash
-# Reload Falco and trigger it
+# Falco's default config has `watch_config_files: true`, so it auto-detects
+# rules-file changes and reloads within seconds — no manual reload needed.
+
+# Trigger the rule and confirm the alert
 kubectl exec suspicious -n falco-demo -- cat /etc/shadow
 kubectl logs -n falco -l app.kubernetes.io/name=falco | grep -i "/etc/shadow"
 ```
