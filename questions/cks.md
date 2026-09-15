@@ -1238,6 +1238,18 @@ helm install falco falcosecurity/falco -n falco --create-namespace \
 > syscalls via an eBPF/kernel driver on the node, so it depends on the host kernel
 > (the Podman VM kernel). `modern_ebpf` (CO-RE, needs BTF) is the most likely to
 > load; if it doesn't, this step can only be completed on a real exam node.
+>
+> **Known failure on kind/Podman:** the `falco` container (already `privileged:
+> true` — the chart's own default for `modern_ebpf`) crash-loops with:
+> `libpman: ring buffer map type is not supported (errno: 1 | message: Operation
+> not permitted)`. This happens because the node containers run nested inside the
+> Podman machine VM, and that virtualization layer doesn't reliably let a nested
+> privileged container create a `BPF_MAP_TYPE_RINGBUF` map, regardless of
+> capabilities granted at the Kubernetes level. Switching `driver.kind` to `ebpf`
+> or `kmod` doesn't help either (no matching prebuilt legacy probe / no kernel
+> headers for the VM's kernel). Treat this as expected and either
+> `helm uninstall falco -n falco` to stop the crash loop, or leave it — it
+> doesn't block the rest of the task.
 
 # 2. Trigger the built-in "Terminal shell in container" rule
 kubectl exec -it suspicious -n falco-demo -- sh
