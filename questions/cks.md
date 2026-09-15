@@ -995,24 +995,23 @@ kubectl logs job/kube-bench | grep '\[FAIL\]'
 ```
 
 ```bash
-# 2a. kube-apiserver: disable profiling (CIS 1.2.15)
+# 2a. kube-apiserver: stop extending service account token lifetimes (CIS 1.2.30)
 sudo vi /etc/kubernetes/manifests/kube-apiserver.yaml
-#   add:  --profiling=false
+#   add:  --service-account-extend-token-expiration=false
 ```
 
 ```bash
-# 2b. kubelet: tighten the service file permissions (CIS 4.1.1)
-stat -c '%a %n' /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
-sudo chmod 600 /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+# 2b. kubelet: tighten config.yaml permissions (CIS 4.1.9)
+stat -c '%a %n' /var/lib/kubelet/config.yaml
+sudo chmod 600 /var/lib/kubelet/config.yaml
 ```
 
 ```bash
-sudo systemctl daemon-reload
 sudo systemctl restart kubelet
 # Re-run kube-bench (delete + re-apply the Job above) and confirm the two items PASS.
 kubectl delete job kube-bench --ignore-not-found
 # ...re-apply the Job manifest from step 1...
-kubectl logs job/kube-bench | grep -E '1.2.15|4.1.1'
+kubectl logs job/kube-bench | grep -E '1.2.30|4.1.9'
 ```
 
 > [!NOTE]
@@ -1022,14 +1021,14 @@ kubectl logs job/kube-bench | grep -E '1.2.15|4.1.1'
 > restart the relevant component (kubelet restart / apiserver auto-restart).
 
 > [!IMPORTANT]
-> **On this kind cluster** these two controls (`1.2.15` apiserver `--profiling`
-> and `4.1.1` kubelet service file permissions) do reliably show up in the
-> `[FAIL]` list above, so the remediation can be verified end-to-end here. Other
-> findings such as the etcd/audit-log items are also worth practising — just
-> match the flag/file to whatever control number the Job actually flags.
-> Editing the kubelet service file and restarting it is a node-level action; on
-> kind, `exec` into the node (`podman exec -it labs-control-plane bash`) — there
-> is no host `systemctl` from your workstation.
+> **On this kind cluster** `1.2.30` (apiserver token-expiration flag) and
+> `4.1.9` (kubelet `config.yaml` permissions) consistently show up in the
+> `[FAIL]` list above, so the remediation can be verified end-to-end here. The
+> exact set of failures can shift slightly between runs/versions — if these two
+> ever pass already, pick any other `[FAIL]` line and match its flag/file
+> instead. Editing the kubelet config file and restarting it is a node-level
+> action; on kind, `exec` into the node (`podman exec -it labs-control-plane bash`)
+> — there is no host `systemctl` from your workstation.
 
 </details>
 
