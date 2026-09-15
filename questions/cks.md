@@ -995,49 +995,41 @@ kubectl logs job/kube-bench | grep '\[FAIL\]'
 ```
 
 ```bash
-# 2a. kube-apiserver: ensure anonymous auth is off (CIS 1.2.1)
+# 2a. kube-apiserver: disable profiling (CIS 1.2.15)
 sudo vi /etc/kubernetes/manifests/kube-apiserver.yaml
-#   add:  --anonymous-auth=false
+#   add:  --profiling=false
 ```
 
 ```bash
-# 2b. kubelet: disable anonymous access (CIS 4.2.1)
-sudo vi /var/lib/kubelet/config.yaml
-```
-
-```yaml
-authentication:
-  anonymous:
-    enabled: false      # was true
-  webhook:
-    enabled: true
-authorization:
-  mode: Webhook          # not AlwaysAllow
+# 2b. kubelet: tighten the service file permissions (CIS 4.1.1)
+stat -c '%a %n' /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+sudo chmod 600 /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 ```
 
 ```bash
+sudo systemctl daemon-reload
 sudo systemctl restart kubelet
 # Re-run kube-bench (delete + re-apply the Job above) and confirm the two items PASS.
 kubectl delete job kube-bench --ignore-not-found
 # ...re-apply the Job manifest from step 1...
-kubectl logs job/kube-bench | grep -E '1.2.1|4.2.1'
+kubectl logs job/kube-bench | grep -E '1.2.15|4.1.1'
 ```
 
 > [!NOTE]
 > kube-bench maps each finding to a CIS control number and prints the exact
 > remediation. On the exam, fix the specific control the task names, edit the
-> apiserver **static pod manifest** or the **kubelet config**, then restart the
-> relevant component (kubelet restart / apiserver auto-restart).
+> apiserver **static pod manifest** or the **kubelet service/config file**, then
+> restart the relevant component (kubelet restart / apiserver auto-restart).
 
 > [!IMPORTANT]
-> **On this kind cluster** the two named controls (`1.2.1` apiserver
-> `--anonymous-auth` and `4.2.1` kubelet anonymous auth) already **PASS** — kind
-> configures them securely out of the box, so they won't appear in the `[FAIL]`
-> list. Practise the remediation workflow against a control the Job actually flags
-> (e.g. the audit-log or file-permission items), or use a real kubeadm node where
-> these two commonly fail. Editing `/var/lib/kubelet/config.yaml` and restarting
-> the kubelet is a node-level action; on kind, `exec` into the node
-> (`podman exec -it labs-control-plane bash`) — there is no host `systemctl`.
+> **On this kind cluster** these two controls (`1.2.15` apiserver `--profiling`
+> and `4.1.1` kubelet service file permissions) do reliably show up in the
+> `[FAIL]` list above, so the remediation can be verified end-to-end here. Other
+> findings such as the etcd/audit-log items are also worth practising — just
+> match the flag/file to whatever control number the Job actually flags.
+> Editing the kubelet service file and restarting it is a node-level action; on
+> kind, `exec` into the node (`podman exec -it labs-control-plane bash`) — there
+> is no host `systemctl` from your workstation.
 
 </details>
 
