@@ -1171,7 +1171,7 @@ kubesec scan scenarios/cks/17-static-analysis/deployment.yaml
 
 ## 18. Generate a Software Bill of Materials (SBOM)
 
-**Task:** *(local exercise — no `task setup`.)* Generate an SBOM in SPDX JSON format for the image `nginx:1.25` and save it to `/tmp/nginx-sbom.spdx.json`, then scan that SBOM for known vulnerabilities.
+**Task:** *(local exercise — no `task setup`.)* Using **Trivy**, generate an SBOM in SPDX JSON format for the image `nginx:1.25` and save it to `/tmp/nginx-sbom.spdx.json`, then scan that SBOM for known vulnerabilities.
 
 <details>
 <summary>Hint</summary>
