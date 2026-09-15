@@ -1110,6 +1110,12 @@ kubectl run good --image=registry.internal/nginx:1.25 -n trusted --dry-run=serve
 
 [kubesec.io](https://kubesec.io/) · [KubeLinter](https://docs.kubelinter.io/) · [Trivy config scanning](https://aquasecurity.github.io/trivy/latest/docs/scanner/misconfiguration/)
 
+> [!TIP]
+> The `shyiko/kubesec` Homebrew tap is abandoned and fails to build. Use
+> `brew install trivy` or `brew install kube-linter` instead, or run the real
+> `kubesec` (controlplaneio/kubesec) via Docker:
+> `docker run -i kubesec/kubesec:v2 scan /dev/stdin < deployment.yaml`.
+
 </details>
 
 <details>
@@ -1117,9 +1123,9 @@ kubectl run good --image=registry.internal/nginx:1.25 -n trusted --dry-run=serve
 
 ```bash
 # Scan with any of these
-kubesec scan scenarios/cks/17-static-analysis/deployment.yaml
-kube-linter lint scenarios/cks/17-static-analysis/deployment.yaml
 trivy config scenarios/cks/17-static-analysis/deployment.yaml
+kube-linter lint scenarios/cks/17-static-analysis/deployment.yaml
+docker run -i kubesec/kubesec:v2 scan /dev/stdin < scenarios/cks/17-static-analysis/deployment.yaml
 ```
 
 The scanners flag: `hostNetwork`, `hostPID`, `privileged`, `runAsUser: 0`,
